@@ -8,6 +8,13 @@ Counting robot data in tokens is tricky: in text every word is new, but at 30 fp
 
 ## Usage
 
-Open `index.html`. Everything's editable in-page; hover the chart for a params/tokens read-off. Compute uses `C ≈ 6·N·D·epochs`.
+Open `index.html` for the overview: every model plotted against the LLM landmarks. Click one to open its detail page (`model.html`), where you can edit the assumptions and see the numbers move. Hover the chart anywhere for a params/tokens read-off. Compute uses `C ≈ 6·N·D·epochs`.
 
-Model values live in `data.js`. Edit the numbers as you read a paper, or add another entry and it shows up in the dropdown.
+Model values live in `data.js`. Edit the numbers as you read a paper, or add another entry and it shows up on the overview and in the dropdown.
+
+## Files
+
+- `index.html` — overview graph, all models
+- `model.html` — per-model detail page (editable)
+- `data.js` — the model values
+- `scale.js` / `style.css` — shared math/plotting and styles

@@ -3,335 +3,50 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>VLA Token Estimator — MolmoAct2</title>
-<style>
-  :root{
-    --bg:#f6f7f9; --panel:#ffffff; --panel2:#eef1f5; --line:#dbe0e8;
-    --ink:#1a2029; --dim:#6b7688; --text:#2f3946;
-    --accent:#0d9488; --naive:#3b5bbf; --gpt:#d97706; --warn:#c2691a; --ok:#0d9488;
-    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
-  }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);
-    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
-  .wrap{max-width:1000px;margin:0 auto;padding:28px 20px 70px;}
-  h1{font-size:23px;margin:0 0 4px;letter-spacing:-.02em;}
-  h1 span{color:var(--accent);}
-  .top{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px;margin-bottom:18px;}
-  .chips{display:flex;gap:8px;}
-  .chip{font-size:12px;padding:3px 10px;border-radius:20px;border:1px solid var(--line);}
-  .chip.ok{background:#e6f5f3;color:#0a6d63;border-color:#bfe6e0;}
-  .chip.guess{background:#fbeee0;color:#9a5313;border-color:#f0d5b4;}
-
-  /* HERO */
-  .hero{background:var(--panel);border:1px solid var(--line);border-radius:16px;
-    padding:24px 26px;box-shadow:0 2px 8px rgba(20,30,50,.05);}
-  .bignums{display:flex;gap:34px;flex-wrap:wrap;margin-bottom:6px;}
-  .big .tag{font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;}
-  .big .n{font:700 40px/1 var(--mono);margin:4px 0 2px;}
-  .big.eff .n{color:var(--accent);}
-  .big.naive .n{color:var(--naive);}
-  .big .vs{font-size:14px;color:var(--text);}
-  .big .vs b{font-size:16px;}
-  .big.eff .vs b{color:var(--accent);}
-  .big.naive .vs b{color:var(--naive);}
-
-  /* number line */
-  .axiswrap{margin:34px 4px 10px;}
-  .axis{position:relative;height:120px;}
-  .axisline{position:absolute;left:0;right:0;top:60px;height:3px;background:#c7cfda;border-radius:2px;}
-  .tick{position:absolute;top:57px;width:2px;height:9px;background:#aab3c2;transform:translateX(-1px);}
-  .ticklab{position:absolute;top:74px;transform:translateX(-50%);text-align:center;font-size:11px;color:var(--dim);white-space:nowrap;}
-  .ticklab b{display:block;color:var(--text);font:600 12px var(--mono);}
-  .pin{position:absolute;top:60px;width:3px;height:3px;}
-  .pin .stem{position:absolute;left:0;bottom:0;width:3px;height:48px;transform:translateX(-1px);border-radius:2px;}
-  .pin .dot{position:absolute;left:0;bottom:44px;width:13px;height:13px;border-radius:50%;transform:translate(-6px,0);border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.2);}
-  .pin .lab{position:absolute;bottom:60px;transform:translateX(-50%);white-space:nowrap;font:600 12px var(--mono);}
-  .pin.eff .stem,.pin.eff .dot{background:var(--accent);}
-  .pin.eff .lab{color:var(--accent);}
-  .pin.naive .stem,.pin.naive .dot{background:var(--naive);}
-  .pin.naive .lab{color:var(--naive);}
-
-  /* novelty slider in hero */
-  .nov{display:flex;align-items:center;gap:14px;margin-top:20px;padding-top:18px;border-top:1px solid var(--line);}
-  .nov label{font-size:13px;color:var(--text);white-space:nowrap;}
-  .nov input[type=range]{flex:1;accent-color:var(--accent);}
-  .nov .v{font:700 16px var(--mono);color:var(--accent);min-width:54px;text-align:right;}
-  .nov .ends{font-size:11px;color:var(--dim);}
-
-  /* compute strip */
-  .compute{display:flex;gap:26px;flex-wrap:wrap;margin-top:16px;padding-top:16px;border-top:1px solid var(--line);font-size:13px;color:var(--text);}
-  .compute b{font-family:var(--mono);}
-
-  /* CONTROLS */
-  .controls{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px;}
-  @media(max-width:760px){.controls{grid-template-columns:1fr}.bignums{gap:20px}}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;}
-  .card h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin:0 0 8px;font-weight:600;}
-  .r{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:5px 0;}
-  .r label{color:var(--text);font-size:13.5px;}
-  input[type=number]{width:88px;background:var(--panel2);border:1px solid var(--line);
-    color:var(--ink);border-radius:7px;padding:5px 8px;font:13px var(--mono);text-align:right;}
-  select{background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:7px;padding:5px;font:13px var(--mono);}
-  input[type=checkbox]{width:17px;height:17px;accent-color:var(--accent);}
-  .derived{color:var(--dim);font:12px var(--mono);}
-  .derived b{color:var(--ink);}
-  .legend{display:flex;flex-direction:column;gap:3px;margin-top:6px;padding-top:8px;border-top:1px dashed var(--line);}
-  .legend span{font-size:11.5px;color:var(--dim);}
-  .legend b{display:inline-block;min-width:12px;color:var(--ink);font:600 12px var(--mono);margin-right:4px;}
-
-  details{margin-top:22px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:4px 16px;}
-  summary{cursor:pointer;font-size:13px;color:var(--dim);padding:10px 0;font-weight:600;}
-  details p{color:var(--text);font-size:13px;}
-  .tip{position:absolute;pointer-events:none;background:#1a2029;color:#fff;
-    font:12px var(--mono);padding:5px 9px;border-radius:6px;opacity:0;
-    transform:translate(-50%,-150%);white-space:nowrap;transition:opacity .08s;z-index:5;}
-  code{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12px;}
-</style>
+<title>Scale Estimator</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="wrap">
   <div class="top">
     <div>
-      <h1>How scaled is <span id="modelName">…</span>&nbsp;?</h1>
-      <div style="color:var(--dim);font-size:13px">Params and training tokens, plotted against the LLMs you know · from the paper <a id="paperLink" href="#" target="_blank" rel="noopener" style="color:var(--naive)">…</a></div>
-    </div>
-    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-      <select id="modelSel" style="background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:6px 10px;font:13px inherit;cursor:pointer"></select>
-      <span class="chip guess" id="chipNote"></span>
+      <h1>How scaled are robot models&nbsp;?</h1>
+      <div style="color:var(--dim);font-size:13px">Parameters vs. training tokens, next to some seminal LLMs. Click a model to open it.</div>
     </div>
   </div>
 
-  <!-- HERO -->
   <div class="hero">
-    <div class="bignums">
-      <div class="big eff">
-        <div class="tag">Effective tokens (only what's new each frame)</div>
-        <div class="n" id="effN">—</div>
-        <div class="vs" id="effVs">—</div>
-      </div>
-      <div class="big naive">
-        <div class="tag">Naive tokens (count every frame)</div>
-        <div class="n" id="naiveN">—</div>
-        <div class="vs" id="naiveVs">—</div>
-      </div>
-    </div>
-
-    <div class="axiswrap" style="position:relative">
+    <div class="axiswrap">
       <svg id="scatter" viewBox="0 0 900 460" style="width:100%;height:auto"></svg>
       <div class="tip" id="tip"></div>
     </div>
-
-    <div class="nov">
-      <label>Frame novelty</label>
-      <span class="ends">video ~2%</span>
-      <input type="range" id="novelty" value="5" min="0" max="100" step="1">
-      <span class="ends">text 100%</span>
-      <span class="v" id="noveltyVal">5%</span>
-    </div>
-
-    <div class="compute">
-      <span>Compute ≈ <b id="flopsEff">—</b> FLOPs</span>
-      <span id="flopsVs" style="color:var(--dim)">—</span>
-    </div>
+    <div class="models" id="models"></div>
   </div>
-
-  <!-- CONTROLS -->
-  <div class="controls">
-    <div class="card">
-      <h2>Tokens in one frame</h2>
-      <div class="r"><label title="square image, pixels">Resolution</label><input type="number" id="res" value="224" min="32" step="16"></div>
-      <div class="r"><label title="ViT splits into (res/patch)² patches">Patch size</label><input type="number" id="patch" value="14" min="2"></div>
-      <div class="r"><label>Camera views</label><input type="number" id="views" value="3" min="1"></div>
-      <div class="r"><span class="derived">→ <b id="visPerFrame">—</b> vision tokens / frame</span></div>
-    </div>
-    <div class="card">
-      <h2>Per control step</h2>
-      <div class="r"><label title="joint angles, gripper">State / proprio tokens</label><input type="number" id="state" value="8" min="0"></div>
-      <div class="r"><label title="what the policy predicts">Action tokens</label><input type="number" id="action" value="7" min="0"></div>
-      <div class="r"><label title="instruction, once per episode">Language / episode</label><input type="number" id="lang" value="16" min="0"></div>
-      <div class="r"><label title="off = actions get the novelty discount too">Count state+action every step</label><input type="checkbox" id="actNovel" checked></div>
-    </div>
-    <div class="card">
-      <h2>Dataset scale</h2>
-      <div class="r"><label>Frame rate (fps)</label><input type="number" id="fps" value="30" min="1"></div>
-      <div class="r"><label>Avg episode (sec)</label><input type="number" id="eplen" value="20" min="1"></div>
-      <div class="r"><label>Episodes</label><input type="number" id="episodes" value="86400" min="1" step="1000"></div>
-      <div class="r"><label title="if >0, overrides episodes×length">Total hours (overrides)</label><input type="number" id="hours" value="720" min="0" step="10"></div>
-      <div class="r"><span class="derived">= <b id="totHours">—</b> h · <b id="totFrames">—</b> frames</span></div>
-    </div>
-    <div class="card">
-      <h2>Model & compute</h2>
-      <div class="r"><label>Parameters, N</label>
-        <span style="display:flex;gap:6px"><input type="number" id="params" value="7" min="0.001" step="0.5" style="width:60px">
-        <select id="paramUnit"><option value="1e9" selected>B</option><option value="1e6">M</option></select></span></div>
-      <div class="r"><label title="robot data is often repeated many times">Epochs over dataset</label><input type="number" id="epochs" value="1" min="0.1" step="0.5"></div>
-      <div class="r"><span class="derived">C ≈ 6·N·D·epochs <a href="https://arxiv.org/abs/2203.15556" target="_blank" rel="noopener" title="Chinchilla (Hoffmann et al., 2022)" style="color:var(--naive)">↗</a></span></div>
-      <div class="legend">
-        <span><b>C</b> compute (FLOPs)</span>
-        <span><b>N</b> parameters</span>
-        <span><b>D</b> tokens</span>
-        <span><b>6</b> FLOPs / param / token</span>
-      </div>
-    </div>
-  </div>
-
-  <details>
-    <summary>How this is computed &amp; what's real vs guessed</summary>
-    <p>In text every word counts. In 30&nbsp;fps video, frame two is almost a copy of frame one — so counting image patches like words gives a huge, meaningless number. The novelty slider is your guess at how much of each frame is actually new: text ~100%, a slow-moving arm ~2%.</p>
-    <p>Math: a frame is <code>(res/patch)² × views</code> vision tokens. Effective count keeps the first frame whole and only the new fraction after. State and actions count every step; the instruction counts once. Compute (in FLOPs) is roughly <code>6 × parameters × tokens × epochs</code> — the <a href="https://arxiv.org/abs/2203.15556" target="_blank" rel="noopener" style="color:var(--naive)">Chinchilla</a> rule of thumb, where the 6 is the FLOPs spent per parameter per token. Compared to the ~3.1e23 FLOPs it took to train GPT-3.</p>
-    <p>Only the 720 hours is real (the 3.3M samples are the VLM backbone's pretraining, not robot data). Everything else is a placeholder — swap in the paper's numbers.</p>
-  </details>
 </div>
 
 <script src="data.js"></script>
+<script src="scale.js"></script>
 <script>
 const $=id=>document.getElementById(id);
-let currentModel="";
 
-function fmt(n){
-  if(n>=1e12) return (n/1e12).toFixed(n>=1e13?0:2)+"T";
-  if(n>=1e9)  return (n/1e9 ).toFixed(n>=1e10?0:1)+"B";
-  if(n>=1e6)  return (n/1e6 ).toFixed(n>=1e7?0:1)+"M";
-  if(n>=1e3)  return (n/1e3 ).toFixed(1)+"K";
-  return Math.round(n).toString();
-}
-function ratio(x,ref){
-  if(x>=ref) return `<b>${(x/ref).toFixed(x/ref>=10?0:1)}×</b> GPT-3`;
-  return `<b>${(ref/x).toFixed(ref/x>=10?0:1)}×</b> smaller than GPT-3`;
-}
-
-function calc(){
-  const res=+$("res").value,patch=+$("patch").value,views=+$("views").value;
-  const state=+$("state").value,action=+$("action").value,lang=+$("lang").value;
-  const fps=+$("fps").value,nov=+$("novelty").value/100,actNovel=$("actNovel").checked;
-  const eplen=+$("eplen").value,eps=+$("episodes").value,hoursOverride=+$("hours").value;
-
-  const patches=Math.pow(Math.floor(res/patch),2);
-  const visPerFrame=patches*views;
-  $("visPerFrame").textContent=fmt(visPerFrame);
-  $("noveltyVal").textContent=(nov*100).toFixed(0)+"%";
-
-  const totalSeconds=hoursOverride>0?hoursOverride*3600:eplen*eps;
-  const totFrames=Math.round(totalSeconds*fps);
-  const numEp=hoursOverride>0?Math.max(1,Math.round(totalSeconds/eplen)):eps;
-  $("totHours").textContent=(totalSeconds/3600).toLocaleString(undefined,{maximumFractionDigits:0});
-  $("totFrames").textContent=fmt(totFrames);
-
-  const naiveVis=visPerFrame*totFrames;
-  const effVis=visPerFrame*(numEp+(totFrames-numEp)*nov);
-  const sa=state+action;
-  const naiveSA=sa*totFrames;
-  const effSA=actNovel?naiveSA:sa*(numEp+(totFrames-numEp)*nov);
-  const langTot=lang*numEp;
-
-  const naive=naiveVis+naiveSA+langTot, eff=effVis+effSA+langTot;
-  $("naiveN").textContent=fmt(naive);
-  $("effN").textContent=fmt(eff);
-  $("naiveVs").innerHTML=ratio(naive,300e9);
-  $("effVs").innerHTML=ratio(eff,300e9);
-
-  const N=+$("params").value*(+$("paramUnit").value),epochs=+$("epochs").value;
-  const flopsEff=6*N*eff*epochs;
-  $("flopsEff").textContent=flopsEff.toExponential(2);
-  $("flopsVs").innerHTML="training GPT-3 took ~3.1e23 → this is "+ratio(flopsEff,3.14e23).replace("GPT-3","").replace("smaller than ","smaller");
-
-  drawScatter(naive,eff,N);
-}
-
-const PLOT={W:900,H:460,pL:72,pR:30,pT:30,pB:54,XMIN:9,XMAX:11.5,YMIN:9,YMAX:12.7};
-const xm=n=>PLOT.pL+(Math.log10(n)-PLOT.XMIN)/(PLOT.XMAX-PLOT.XMIN)*(PLOT.W-PLOT.pL-PLOT.pR);
-const ym=d=>PLOT.H-PLOT.pB-(Math.log10(d)-PLOT.YMIN)/(PLOT.YMAX-PLOT.YMIN)*(PLOT.H-PLOT.pT-PLOT.pB);
-const xInv=px=>Math.pow(10,PLOT.XMIN+(px-PLOT.pL)/(PLOT.W-PLOT.pL-PLOT.pR)*(PLOT.XMAX-PLOT.XMIN));
-const yInv=py=>Math.pow(10,PLOT.YMIN+(PLOT.H-PLOT.pB-py)/(PLOT.H-PLOT.pT-PLOT.pB)*(PLOT.YMAX-PLOT.YMIN));
-
-function drawScatter(naive,eff,N){
-  const {W,H,pL,pR,pT,pB}=PLOT;
-  let s="";
-  const xticks=[[1e9,"1B"],[1e10,"10B"],[1e11,"100B"]];
-  const yticks=[[1e9,"1B"],[1e10,"10B"],[1e11,"100B"],[1e12,"1T"]];
-  xticks.forEach(([v,l])=>{const x=xm(v);
-    s+=`<line x1=${x} y1=${pT} x2=${x} y2=${H-pB} stroke="#eceff3"/><text x=${x} y=${H-pB+18} fill="#6b7688" font-size="12" text-anchor="middle">${l}</text>`;});
-  yticks.forEach(([v,l])=>{const y=ym(v);
-    s+=`<line x1=${pL} y1=${y} x2=${W-pR} y2=${y} stroke="#eceff3"/><text x=${pL-9} y=${y+4} fill="#6b7688" font-size="12" text-anchor="end">${l}</text>`;});
-  s+=`<text x=${(pL+W-pR)/2} y=${H-8} fill="#2f3946" font-size="13" text-anchor="middle" font-weight="600">Model size (parameters) →</text>`;
-  const my=(pT+H-pB)/2;
-  s+=`<text x="18" y=${my} fill="#2f3946" font-size="13" text-anchor="middle" font-weight="600" transform="rotate(-90 18 ${my})">Training tokens →</text>`;
-  // Chinchilla-optimal line: D = 20N
-  s+=`<line x1=${xm(1e9)} y1=${ym(20e9)} x2=${xm(1.99e11)} y2=${ym(3.98e12)} stroke="#c9a15a" stroke-width="1.5" stroke-dasharray="6,5"/>`;
-  // legend for the dashed line, in the top margin (off the plot)
-  s+=`<line x1=${pL} y1="16" x2=${pL+24} y2="16" stroke="#c9a15a" stroke-width="1.5" stroke-dasharray="6,5"/>`;
-  s+=`<text x=${pL+30} y="20" fill="#b07d1e" font-size="12" text-anchor="start">Chinchilla-optimal (20 tokens/param)</text>`;
-  const pt=(n,d,c,r,label,dy,anch)=>{const x=xm(n),y=ym(d);
-    return `<circle cx=${x} cy=${y} r=${r} fill="${c}" stroke="#fff" stroke-width="2"/><text x=${x} y=${y+dy} fill="${c}" font-size="12" font-weight="600" text-anchor="${anch||"middle"}">${label}</text>`;};
-  // reference LLMs
-  s+=pt(1.5e9,10e9,"#9aa4b2",5,"GPT-2",-12);
-  s+=pt(175e9,300e9,"#d97706",6,"GPT-3",-12);
-  s+=pt(70e9,1.4e12,"#9aa4b2",5,"Chinchilla",20);
-  s+=pt(70e9,2e12,"#9aa4b2",5,"Llama 2",-12);
-  // MolmoAct2
-  s+=pt(N,naive,"#3b5bbf",5,"naive "+currentModel,-12);
-  s+=pt(N,eff,"#0d9488",8,"effective "+currentModel,-14);
-  s+=`<rect x=${pL} y=${pT} width=${W-pL-pR} height=${H-pT-pB} fill="none" stroke="#dbe0e8"/>`;
-  s+=`<line id="hx" stroke="#b8bfca" stroke-width="1" stroke-dasharray="3,3" opacity="0"/>`;
-  s+=`<line id="hy" stroke="#b8bfca" stroke-width="1" stroke-dasharray="3,3" opacity="0"/>`;
-  $("scatter").innerHTML=s;
-}
-
-// crosshair anywhere in the plot → read off params & tokens
-(function(){
-  const {W,H,pL,pR,pT,pB}=PLOT;
-  const svg=$("scatter"),tip=$("tip");
-  function hide(){tip.style.opacity="0";["hx","hy"].forEach(i=>{const e=$(i);if(e)e.setAttribute("opacity","0");});}
-  svg.addEventListener("mousemove",e=>{
-    const rect=svg.getBoundingClientRect();
-    const sx=(e.clientX-rect.left)/rect.width*W;
-    const sy=(e.clientY-rect.top)/rect.height*H;
-    if(sx<pL||sx>W-pR||sy<pT||sy>H-pB){hide();return;}
-    const N=xInv(sx), D=yInv(sy), opt=20*N;
-    const hx=$("hx"),hy=$("hy");
-    if(hx){hx.setAttribute("x1",pL);hx.setAttribute("x2",W-pR);hx.setAttribute("y1",sy);hx.setAttribute("y2",sy);hx.setAttribute("opacity","1");}
-    if(hy){hy.setAttribute("y1",pT);hy.setAttribute("y2",H-pB);hy.setAttribute("x1",sx);hy.setAttribute("x2",sx);hy.setAttribute("opacity","1");}
-    const r = D/opt;
-    const starved = Math.abs(r-1)<0.05 ? "Chinchilla-balanced for this size"
-      : r<1 ? `${(1/r).toFixed(1/r>=10?0:1)}× too few tokens for this size`
-      : `${r.toFixed(r>=10?0:1)}× more tokens than needed`;
-    tip.style.opacity="1";
-    tip.style.left=(sx/W*rect.width)+"px";
-    tip.style.top=(sy/H*rect.height)+"px";
-    tip.innerHTML=`${fmt(N)} params &middot; ${fmt(D)} tokens<br><span style="color:#e0a34d">${starved}</span>`;
+function draw(){
+  let robot="";
+  const cards=[];
+  Object.keys(MODELS).forEach(name=>{
+    const t=tokensFrom(getModelVals(name));
+    const x=xm(t.N), y=ym(t.eff), href="model.html?m="+encodeURIComponent(name);
+    robot+=`<a href="${href}">`
+      +`<circle cx=${x} cy=${y} r="7" fill="#0d9488" stroke="#fff" stroke-width="2" style="cursor:pointer"/>`
+      +`<text x=${x} y=${y-13} fill="#0d9488" font-size="12" font-weight="600" text-anchor="middle" style="cursor:pointer">${name}</text>`
+      +`</a>`;
+    cards.push(`<a class="modelcard" href="${href}"><div class="mname">${name}</div>`
+      +`<div class="mmeta">${fmt(t.N)} params · ${fmt(t.eff)} tokens</div></a>`);
   });
-  svg.addEventListener("mouseleave",hide);
-})();
-
-function loadModel(name){
-  const m=MODELS[name]; if(!m) return;
-  $("params").value=m.params; $("paramUnit").value=m.paramUnit;
-  $("res").value=m.res; $("patch").value=m.patch; $("views").value=m.views;
-  $("state").value=m.state; $("action").value=m.action; $("lang").value=m.lang;
-  $("fps").value=m.fps; $("novelty").value=m.novelty; $("eplen").value=m.eplen;
-  $("episodes").value=m.episodes; $("hours").value=m.hours; $("epochs").value=m.epochs;
-  $("actNovel").checked=m.countEveryStep!==false;
-  currentModel=name;
-  $("modelName").textContent=name;
-  $("paperLink").textContent=m.paper.replace("https://arxiv.org/abs/","arXiv:");
-  $("paperLink").href=m.paper;
-  $("chipNote").textContent=m.note||"";
-  $("chipNote").style.display=m.note?"":"none";
-  calc();
+  $("scatter").innerHTML=plotScaffold()+robot+plotBorder()+hoverLines();
+  $("models").innerHTML=cards.join("");
 }
 
-// recompute on any control change; the model dropdown loads a whole config
-document.querySelectorAll("input,#paramUnit").forEach(el=>el.addEventListener("input",calc));
-$("modelSel").addEventListener("change",e=>loadModel(e.target.value));
-
-if(typeof MODELS!=="undefined"){
-  const keys=Object.keys(MODELS);
-  keys.forEach(k=>{const o=document.createElement("option");o.value=k;o.textContent=k;$("modelSel").appendChild(o);});
-  loadModel(keys[0]);
-}else{
-  calc(); // fall back to the HTML default values if data.js is missing
-}
+if(typeof MODELS!=="undefined"){ draw(); attachCrosshair($("scatter"),$("tip")); }
 </script>
 </body>
 </html>

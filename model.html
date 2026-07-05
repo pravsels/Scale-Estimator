@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Scale Estimator</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">← All models</a>
+  <div class="top">
+    <div>
+      <h1>How scaled is <span id="modelName">…</span>&nbsp;?</h1>
+      <div style="color:var(--dim);font-size:13px">Params and training tokens, plotted against some seminal LLMs · from the paper <a id="paperLink" href="#" target="_blank" rel="noopener">…</a></div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+      <select id="modelSel" style="background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:6px 10px;font:13px inherit;cursor:pointer"></select>
+      <span class="chip guess" id="chipNote"></span>
+      <a href="#" id="resetBtn" style="font-size:11px;color:var(--dim);text-decoration:none">↺ reset to data.js</a>
+    </div>
+  </div>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="bignums">
+      <div class="big eff">
+        <div class="tag">Effective tokens (only what's new each frame)</div>
+        <div class="n" id="effN">—</div>
+        <div class="vs" id="effVs">—</div>
+      </div>
+      <div class="big naive">
+        <div class="tag">Naive tokens (count every frame)</div>
+        <div class="n" id="naiveN">—</div>
+        <div class="vs" id="naiveVs">—</div>
+      </div>
+    </div>
+
+    <div class="axiswrap">
+      <svg id="scatter" viewBox="0 0 900 460" style="width:100%;height:auto"></svg>
+      <div class="tip" id="tip"></div>
+    </div>
+
+    <div class="nov">
+      <label>Frame novelty</label>
+      <span class="ends">static video ~2%</span>
+      <input type="range" id="novelty" value="5" min="0" max="100" step="1">
+      <span class="ends">text 100%</span>
+      <span class="v" id="noveltyVal">5%</span>
+    </div>
+
+    <div class="compute">
+      <span>Compute ≈ <b id="flopsEff">—</b> FLOPs</span>
+      <span id="flopsVs" style="color:var(--dim)">—</span>
+    </div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="controls">
+    <div class="card">
+      <h2>Tokens in one frame</h2>
+      <div class="r"><label title="square image, pixels">Resolution</label><input type="number" id="res" min="32" step="16"></div>
+      <div class="r"><label title="ViT splits into (res/patch)² patches">Patch size</label><input type="number" id="patch" min="2"></div>
+      <div class="r"><label>Camera views</label><input type="number" id="views" min="1"></div>
+      <div class="r"><span class="derived">→ <b id="visPerFrame">—</b> vision tokens / frame</span></div>
+    </div>
+    <div class="card">
+      <h2>Per control step</h2>
+      <div class="r"><label title="joint angles, gripper">State / proprio tokens</label><input type="number" id="state" min="0"></div>
+      <div class="r"><label title="what the policy predicts">Action tokens</label><input type="number" id="action" min="0"></div>
+      <div class="r"><label title="instruction, once per episode">Language / episode</label><input type="number" id="lang" min="0"></div>
+      <div class="r"><label title="off = actions get the novelty discount too">Count state+action every step</label><input type="checkbox" id="actNovel"></div>
+    </div>
+    <div class="card">
+      <h2>Dataset scale</h2>
+      <div class="r"><label>Frame rate (fps)</label><input type="number" id="fps" min="1"></div>
+      <div class="r"><label>Avg episode (sec)</label><input type="number" id="eplen" min="1"></div>
+      <div class="r"><label>Episodes</label><input type="number" id="episodes" min="1" step="1000"></div>
+      <div class="r"><label title="if >0, overrides episodes×length">Total hours (overrides)</label><input type="number" id="hours" min="0" step="10"></div>
+      <div class="r"><span class="derived">= <b id="totHours">—</b> h · <b id="totFrames">—</b> frames</span></div>
+    </div>
+    <div class="card">
+      <h2>Model & compute</h2>
+      <div class="r"><label>Parameters, N</label>
+        <span style="display:flex;gap:6px"><input type="number" id="params" min="0.001" step="0.5" style="width:60px">
+        <select id="paramUnit"><option value="1e9">B</option><option value="1e6">M</option></select></span></div>
+      <div class="r"><label title="robot data is often repeated many times">Epochs over dataset</label><input type="number" id="epochs" min="0.1" step="0.5"></div>
+      <div class="r"><span class="derived">C ≈ 6·N·D·epochs <a href="https://arxiv.org/abs/2203.15556" target="_blank" rel="noopener" title="Chinchilla (Hoffmann et al., 2022)">↗</a></span></div>
+      <div class="legend">
+        <span><b>C</b> compute (FLOPs)</span>
+        <span><b>N</b> parameters</span>
+        <span><b>D</b> tokens</span>
+        <span><b>6</b> FLOPs / param / token</span>
+      </div>
+    </div>
+  </div>
+
+  <details>
+    <summary>How this is computed &amp; what's real vs guessed</summary>
+    <p>In text every word counts. In 30&nbsp;fps video, frame two is almost a copy of frame one, so counting image patches like words gives a huge, meaningless number. The novelty slider is your guess at how much of each frame is actually new: text ~100%, a moving robot arm maybe ~5%, near-static video ~2%.</p>
+    <p>Math: a frame is <code>(res/patch)² × views</code> vision tokens. Effective count keeps the first frame whole and only the new fraction after. State and actions count every step; the instruction counts once. Compute (in FLOPs) is roughly <code>6 × parameters × tokens × epochs</code>, the <a href="https://arxiv.org/abs/2203.15556" target="_blank" rel="noopener">Chinchilla</a> rule of thumb, where the 6 is the FLOPs spent per parameter per token. Compared to the ~3.1e23 FLOPs it took to train GPT-3.</p>
+    <p>Values load from <code>data.js</code>. Anything not taken from the paper is a placeholder, so swap in real numbers as you read it.</p>
+  </details>
+</div>
+
+<script src="data.js"></script>
+<script src="scale.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+let currentModel="";
+
+function readVals(){
+  return {
+    res:$("res").value, patch:$("patch").value, views:$("views").value,
+    state:$("state").value, action:$("action").value, lang:$("lang").value,
+    fps:$("fps").value, novelty:$("novelty").value, eplen:$("eplen").value,
+    episodes:$("episodes").value, hours:$("hours").value, epochs:$("epochs").value,
+    params:$("params").value, paramUnit:$("paramUnit").value,
+    countEveryStep:$("actNovel").checked
+  };
+}
+
+function drawScatter(naive,eff,N){
+  $("scatter").innerHTML=plotScaffold()
+    +pointSVG(N,naive,"#3b5bbf",5,"naive "+currentModel,-12)
+    +pointSVG(N,eff,"#0d9488",8,"effective "+currentModel,-14)
+    +plotBorder()+hoverLines();
+}
+
+function calc(){
+  const vals=readVals();
+  if(currentModel) saveModelVals(currentModel,vals); // persist edits for this tab session
+  const t=tokensFrom(vals);
+  $("visPerFrame").textContent=fmt(t.visPerFrame);
+  $("noveltyVal").textContent=(t.nov*100).toFixed(0)+"%";
+  $("totHours").textContent=(t.totalSeconds/3600).toLocaleString(undefined,{maximumFractionDigits:0});
+  $("totFrames").textContent=fmt(t.totFrames);
+  $("naiveN").textContent=fmt(t.naive);
+  $("effN").textContent=fmt(t.eff);
+  $("naiveVs").innerHTML=ratio(t.naive,GPT3_TOKENS);
+  $("effVs").innerHTML=ratio(t.eff,GPT3_TOKENS);
+  $("flopsEff").textContent=t.flopsEff.toExponential(2);
+  $("flopsVs").innerHTML="training GPT-3 took ~3.1e23 → this is "+ratio(t.flopsEff,GPT3_FLOPS).replace("GPT-3","").replace("smaller than ","smaller");
+  drawScatter(t.naive,t.eff,t.N);
+}
+
+function loadModel(name){
+  if(!MODELS[name]) return;
+  const m=getModelVals(name); // session override if present, else data.js
+  $("params").value=m.params; $("paramUnit").value=m.paramUnit;
+  $("res").value=m.res; $("patch").value=m.patch; $("views").value=m.views;
+  $("state").value=m.state; $("action").value=m.action; $("lang").value=m.lang;
+  $("fps").value=m.fps; $("novelty").value=m.novelty; $("eplen").value=m.eplen;
+  $("episodes").value=m.episodes; $("hours").value=m.hours; $("epochs").value=m.epochs;
+  $("actNovel").checked=m.countEveryStep!==false;
+  currentModel=name;
+  document.title=name+" · Scale Estimator";
+  $("modelName").textContent=name;
+  $("paperLink").textContent=m.paper.replace("https://arxiv.org/abs/","arXiv:");
+  $("paperLink").href=m.paper;
+  $("chipNote").textContent=m.note||"";
+  $("chipNote").style.display=m.note?"":"none";
+  history.replaceState(null,"","model.html?m="+encodeURIComponent(name));
+  calc();
+}
+
+document.querySelectorAll("input,#paramUnit").forEach(el=>el.addEventListener("input",calc));
+$("modelSel").addEventListener("change",e=>loadModel(e.target.value));
+$("resetBtn").addEventListener("click",e=>{e.preventDefault();clearModelVals(currentModel);loadModel(currentModel);});
+
+if(typeof MODELS!=="undefined"){
+  const keys=Object.keys(MODELS);
+  keys.forEach(k=>{const o=document.createElement("option");o.value=k;o.textContent=k;$("modelSel").appendChild(o);});
+  const want=new URLSearchParams(location.search).get("m");
+  const start=(want&&MODELS[want])?want:keys[0];
+  $("modelSel").value=start;
+  loadModel(start);
+  attachCrosshair($("scatter"),$("tip"));
+}
+</script>
+</body>
+</html>
