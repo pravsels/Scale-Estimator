@@ -93,12 +93,12 @@
 <div class="wrap">
   <div class="top">
     <div>
-      <h1>How scaled is <span>MolmoAct2</span>&nbsp;?</h1>
-      <div style="color:var(--dim);font-size:13px">Params and training tokens, plotted against the LLMs you know · from the paper <a href="https://arxiv.org/abs/2605.02881" target="_blank" rel="noopener" style="color:var(--naive)">arXiv:2605.02881</a></div>
+      <h1>How scaled is <span id="modelName">…</span>&nbsp;?</h1>
+      <div style="color:var(--dim);font-size:13px">Params and training tokens, plotted against the LLMs you know · from the paper <a id="paperLink" href="#" target="_blank" rel="noopener" style="color:var(--naive)">…</a></div>
     </div>
-    <div class="chips">
-      <span class="chip ok">720&nbsp;h ✓ paper</span>
-      <span class="chip guess">rest = guessed</span>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+      <select id="modelSel" style="background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:6px 10px;font:13px inherit;cursor:pointer"></select>
+      <span class="chip guess" id="chipNote"></span>
     </div>
   </div>
 
@@ -184,17 +184,10 @@
   </details>
 </div>
 
+<script src="data.js"></script>
 <script>
 const $=id=>document.getElementById(id);
-// LLM landmarks on the token axis
-const LM=[
-  {name:"GPT-2",     t:10e9},
-  {name:"GPT-3",     t:300e9},
-  {name:"Chinchilla",t:1.4e12},
-  {name:"Llama 2",   t:2e12},
-];
-const DMIN=9, DMAX=13.4; // log10 tokens: 1B .. ~2.5T
-const posOf=t=>Math.max(0,Math.min(100,(Math.log10(Math.max(t,1e8))-DMIN)/(DMAX-DMIN)*100));
+let currentModel="";
 
 function fmt(n){
   if(n>=1e12) return (n/1e12).toFixed(n>=1e13?0:2)+"T";
@@ -277,8 +270,8 @@ function drawScatter(naive,eff,N){
   s+=pt(70e9,1.4e12,"#9aa4b2",5,"Chinchilla",20);
   s+=pt(70e9,2e12,"#9aa4b2",5,"Llama 2",-12);
   // MolmoAct2
-  s+=pt(N,naive,"#3b5bbf",5,"naive MolmoAct2",-12);
-  s+=pt(N,eff,"#0d9488",8,"effective MolmoAct2",-14);
+  s+=pt(N,naive,"#3b5bbf",5,"naive "+currentModel,-12);
+  s+=pt(N,eff,"#0d9488",8,"effective "+currentModel,-14);
   s+=`<rect x=${pL} y=${pT} width=${W-pL-pR} height=${H-pT-pB} fill="none" stroke="#dbe0e8"/>`;
   s+=`<line id="hx" stroke="#b8bfca" stroke-width="1" stroke-dasharray="3,3" opacity="0"/>`;
   s+=`<line id="hy" stroke="#b8bfca" stroke-width="1" stroke-dasharray="3,3" opacity="0"/>`;
@@ -311,8 +304,34 @@ function drawScatter(naive,eff,N){
   svg.addEventListener("mouseleave",hide);
 })();
 
-document.querySelectorAll("input,select").forEach(el=>el.addEventListener("input",calc));
-calc();
+function loadModel(name){
+  const m=MODELS[name]; if(!m) return;
+  $("params").value=m.params; $("paramUnit").value=m.paramUnit;
+  $("res").value=m.res; $("patch").value=m.patch; $("views").value=m.views;
+  $("state").value=m.state; $("action").value=m.action; $("lang").value=m.lang;
+  $("fps").value=m.fps; $("novelty").value=m.novelty; $("eplen").value=m.eplen;
+  $("episodes").value=m.episodes; $("hours").value=m.hours; $("epochs").value=m.epochs;
+  $("actNovel").checked=m.countEveryStep!==false;
+  currentModel=name;
+  $("modelName").textContent=name;
+  $("paperLink").textContent=m.paper.replace("https://arxiv.org/abs/","arXiv:");
+  $("paperLink").href=m.paper;
+  $("chipNote").textContent=m.note||"";
+  $("chipNote").style.display=m.note?"":"none";
+  calc();
+}
+
+// recompute on any control change; the model dropdown loads a whole config
+document.querySelectorAll("input,#paramUnit").forEach(el=>el.addEventListener("input",calc));
+$("modelSel").addEventListener("change",e=>loadModel(e.target.value));
+
+if(typeof MODELS!=="undefined"){
+  const keys=Object.keys(MODELS);
+  keys.forEach(k=>{const o=document.createElement("option");o.value=k;o.textContent=k;$("modelSel").appendChild(o);});
+  loadModel(keys[0]);
+}else{
+  calc(); // fall back to the HTML default values if data.js is missing
+}
 </script>
 </body>
 </html>
