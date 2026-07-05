@@ -1,5 +1,7 @@
 # Scale Estimator
 
+**[Live site → pravsels.github.io/Scale-Estimator](https://pravsels.github.io/Scale-Estimator/)**
+
 A single-file tool for one blunt question about robot models: **how scaled are they, really?**
 
 ![Parameters vs. training tokens, robot models against seminal LLMs](assets/graph.svg)
