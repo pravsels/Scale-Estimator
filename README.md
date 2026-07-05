@@ -4,7 +4,7 @@ A single-file tool for one blunt question about robot models: **how scaled are t
 
 ![Parameters vs. training tokens, robot models against seminal LLMs](assets/graph.svg)
 
-It plots a policy's **parameters vs. training tokens** against LLMs you know (GPT-2, GPT-3, Chinchilla, Llama 2), with the Chinchilla-optimal line, so you can see how data-starved a model is for its size.
+It plots a model's **parameters vs. training tokens** against some seminal LLMs (GPT-2, GPT-3, Chinchilla, Llama 2), with the Chinchilla-optimal line, so you can see how data-starved a model is for its size.
 
 Counting robot data in tokens is tricky: in text every word is new, but at 30 fps frame N+1 is nearly a copy of frame N. So it shows two numbers: **naive** (count every frame) and **effective** (only what's new, set by the `novelty` slider).
 
