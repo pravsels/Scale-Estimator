@@ -1,6 +1,6 @@
 # Scale Estimator
 
-A single-file tool for one blunt question about robot policies (VLAs): **how scaled are they, really?**
+A single-file tool for one blunt question about robot models: **how scaled are they, really?**
 
 ![Parameters vs. training tokens, robot models against seminal LLMs](assets/graph.svg)
 
