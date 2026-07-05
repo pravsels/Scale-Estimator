@@ -96,8 +96,8 @@
   </div>
 
   <details>
-    <summary>How this is computed &amp; what's real vs guessed</summary>
-    <p>In text every word counts. In 30&nbsp;fps video, frame two is almost a copy of frame one, so counting image patches like words gives a huge, meaningless number. The novelty slider is your guess at how much of each frame is actually new: text ~100%, a moving robot arm maybe ~5%, near-static video ~2%.</p>
+    <summary>How this is computed &amp; what's real vs estimated</summary>
+    <p>In text every word counts. In 30&nbsp;fps video, frame two is almost a copy of frame one, so counting image patches like words gives a huge, meaningless number. The novelty slider is your estimate of how much of each frame is actually new: text ~100%, a moving robot arm maybe ~5%, near-static video ~2%.</p>
     <p>Math: a frame is <code>(res/patch)² × views</code> vision tokens. Effective count keeps the first frame whole and only the new fraction after. State and actions count every step; the instruction counts once. Compute (in FLOPs) is roughly <code>6 × parameters × tokens × epochs</code>, the <a href="https://arxiv.org/abs/2203.15556" target="_blank" rel="noopener">Chinchilla</a> rule of thumb, where the 6 is the FLOPs spent per parameter per token. Compared to the ~3.1e23 FLOPs it took to train GPT-3.</p>
     <p>Values load from <code>data.js</code>. Anything not taken from the paper is a placeholder, so swap in real numbers as you read it.</p>
   </details>
@@ -140,7 +140,9 @@ function calc(){
   $("naiveVs").innerHTML=ratio(t.naive,GPT3_TOKENS);
   $("effVs").innerHTML=ratio(t.eff,GPT3_TOKENS);
   $("flopsEff").textContent=t.flopsEff.toExponential(2);
-  $("flopsVs").innerHTML="training GPT-3 took ~3.1e23 → this is "+ratio(t.flopsEff,GPT3_FLOPS).replace("GPT-3","").replace("smaller than ","smaller");
+  const f=t.flopsEff, g=GPT3_FLOPS;
+  const phrase = f>=g ? (f/g).toFixed(f/g>=10?0:1)+"× GPT-3's" : (g/f).toFixed(g/f>=10?0:1)+"× smaller";
+  $("flopsVs").innerHTML="training GPT-3 took ~3.1e23 → this is <b>"+phrase+"</b>";
   drawScatter(t.naive,t.eff,t.N);
 }
 

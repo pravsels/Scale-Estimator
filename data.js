@@ -30,6 +30,6 @@ const MODELS = {
     episodes: 86400, hours: 720, epochs: 1,
     countEveryStep: true,
     paper: "https://arxiv.org/abs/2605.02881",
-    note: "720 h from paper; rest guessed"
+    note: "720 h from paper; rest estimated"
   }
 };
