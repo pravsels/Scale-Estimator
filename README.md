@@ -4,7 +4,7 @@
 
 A tool for visualizing one major question about robot models: **how scaled are they, really ?**
 
-![Parameters vs. training tokens, robot models against seminal LLMs](assets/graph.svg)
+![Parameters vs. training tokens, robot models against seminal LLMs](assets/graph.svg?v=2a8ddd4)
 
 It plots a model's **parameters vs. estimated training tokens** against some seminal LLMs (GPT-2, GPT-3, Chinchilla, Llama 2), with the Chinchilla-optimal line, so you can see how data-starved a model is for its size. The current audit covers MolmoAct2, π0.5, and LingBot-VLA 2.0.
 
