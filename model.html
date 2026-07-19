@@ -15,7 +15,7 @@
       <div style="color:var(--dim);font-size:13px">Params and training tokens, plotted against some seminal LLMs · from the paper <a id="paperLink" href="#" target="_blank" rel="noopener">…</a></div>
     </div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-      <select id="modelSel" style="background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:6px 10px;font:13px inherit;cursor:pointer"></select>
+      <select id="modelSel"></select>
       <span class="chip guess" id="chipNote"></span>
       <a href="#" id="resetBtn" style="font-size:11px;color:var(--dim);text-decoration:none">↺ reset to data.js</a>
     </div>
@@ -56,6 +56,7 @@
   </div>
 
   <!-- CONTROLS -->
+  <div class="control-note"><b>What-if controls:</b> these edit the primary quantified source. Other sources keep their audited defaults; the novelty slider applies to every included temporal source.</div>
   <div class="controls">
     <div class="card">
       <h2>Tokens in one frame</h2>
@@ -76,8 +77,8 @@
       <div class="r"><label>Frame rate (fps)</label><input type="number" id="fps" min="1"></div>
       <div class="r"><label>Avg episode (sec)</label><input type="number" id="eplen" min="1"></div>
       <div class="r"><label>Episodes</label><input type="number" id="episodes" min="1" step="1000"></div>
-      <div class="r"><label title="if >0, overrides episodes×length">Total hours (overrides)</label><input type="number" id="hours" min="0" step="10"></div>
-      <div class="r"><span class="derived">= <b id="totHours">—</b> h · <b id="totFrames">—</b> frames</span></div>
+      <div class="r"><label title="if >0, overrides episodes×length for the primary source">Primary source hours</label><input type="number" id="hours" min="0" step="10"></div>
+      <div class="r"><span class="derived">included total = <b id="totHours">—</b> h · <b id="totFrames">—</b> frames</span></div>
     </div>
     <div class="card">
       <h2>Model & compute</h2>
@@ -95,11 +96,11 @@
     </div>
   </div>
 
+  <div id="audit"></div>
+
   <details>
     <summary>How this is computed &amp; what's real vs estimated</summary>
-    <p>In text every word counts. In 30&nbsp;fps video, frame two is almost a copy of frame one, so counting image patches like words gives a huge, meaningless number. The novelty slider is your estimate of how much of each frame is actually new: text ~100%, a moving robot arm maybe ~5%, near-static video ~2%.</p>
-    <p>Math: a frame is <code>(res/patch)² × views</code> vision tokens. Effective count keeps the first frame whole and only the new fraction after. State and actions count every step; the instruction counts once. Compute (in FLOPs) is roughly <code>6 × parameters × tokens × epochs</code>, the <a href="https://arxiv.org/abs/2203.15556" target="_blank" rel="noopener">Chinchilla</a> rule of thumb, where the 6 is the FLOPs spent per parameter per token. Compared to the ~3.1e23 FLOPs it took to train GPT-3.</p>
-    <p>Values load from <code>data.js</code>. Anything not taken from the paper is a placeholder, so swap in real numbers as you read it.</p>
+    <p>Naive totals count every frame. Effective totals keep the first frame in each sequence and discount later visual content by the novelty setting. The source audit below identifies every fact, assumption, formula, and exclusion.</p>
   </details>
 </div>
 
@@ -122,15 +123,16 @@ function readVals(){
 
 function drawScatter(naive,eff,N){
   $("scatter").innerHTML=plotScaffold()
-    +pointSVG(N,naive,"#3b5bbf",5,"naive "+currentModel,-12)
-    +pointSVG(N,eff,"#0d9488",8,"effective "+currentModel,-14)
+    +robotPointSVG(N,naive,ROBOT_POINT.naive,"naive "+currentModel,-12)
+    +robotPointSVG(N,eff,ROBOT_POINT.effective,"effective "+currentModel,-14)
     +plotBorder()+hoverLines();
 }
 
 function calc(){
   const vals=readVals();
   if(currentModel) saveModelVals(currentModel,vals); // persist edits for this tab session
-  const t=tokensFrom(vals);
+  const model=applyPrimaryOverrides(getModelVals(currentModel),vals);
+  const t=tokensFrom(model);
   $("visPerFrame").textContent=fmt(t.visPerFrame);
   $("noveltyVal").textContent=(t.nov*100).toFixed(0)+"%";
   $("totHours").textContent=(t.totalSeconds/3600).toLocaleString(undefined,{maximumFractionDigits:0});
@@ -140,28 +142,29 @@ function calc(){
   $("naiveVs").innerHTML=ratio(t.naive,GPT3_TOKENS);
   $("effVs").innerHTML=ratio(t.eff,GPT3_TOKENS);
   $("flopsEff").textContent=t.flopsEff.toExponential(2);
-  const f=t.flopsEff, g=GPT3_FLOPS;
-  const phrase = f>=g ? (f/g).toFixed(f/g>=10?0:1)+"× GPT-3's" : (g/f).toFixed(g/f>=10?0:1)+"× smaller";
-  $("flopsVs").innerHTML="training GPT-3 took ~3.1e23 → this is <b>"+phrase+"</b>";
+  $("flopsVs").innerHTML=flopsRatioHTML(t.flopsEff);
   drawScatter(t.naive,t.eff,t.N);
+  $("audit").innerHTML=auditHTML(model,t);
 }
 
 function loadModel(name){
   if(!MODELS[name]) return;
   const m=getModelVals(name); // session override if present, else data.js
-  $("params").value=m.params; $("paramUnit").value=m.paramUnit;
-  $("res").value=m.res; $("patch").value=m.patch; $("views").value=m.views;
-  $("state").value=m.state; $("action").value=m.action; $("lang").value=m.lang;
-  $("fps").value=m.fps; $("novelty").value=m.novelty; $("eplen").value=m.eplen;
-  $("episodes").value=m.episodes; $("hours").value=m.hours; $("epochs").value=m.epochs;
-  $("actNovel").checked=m.countEveryStep!==false;
+  const vals=editableDefaults(m);
+  $("params").value=vals.params; $("paramUnit").value=vals.paramUnit;
+  $("res").value=vals.res; $("patch").value=vals.patch; $("views").value=vals.views;
+  $("state").value=vals.state; $("action").value=vals.action; $("lang").value=vals.lang;
+  $("fps").value=vals.fps; $("novelty").value=vals.novelty; $("eplen").value=vals.eplen;
+  $("episodes").value=vals.episodes; $("hours").value=vals.hours; $("epochs").value=vals.epochs;
+  $("actNovel").checked=vals.countEveryStep;
   currentModel=name;
   document.title=name+" · Scale Estimator";
   $("modelName").textContent=name;
   $("paperLink").textContent=m.paper.replace("https://arxiv.org/abs/","arXiv:");
   $("paperLink").href=m.paper;
-  $("chipNote").textContent=m.note||"";
-  $("chipNote").style.display=m.note?"":"none";
+  const included=m.sources.filter(source=>source.status==="included").length;
+  $("chipNote").textContent=`${m.estimateKind} · ${included} quantified source${included===1?"":"s"}`;
+  $("chipNote").style.display="";
   history.replaceState(null,"","model.html?m="+encodeURIComponent(name));
   calc();
 }

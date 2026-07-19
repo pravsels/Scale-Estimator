@@ -7,9 +7,7 @@ const footer = `
   let robot = "";
   Object.keys(MODELS).forEach(name=>{
     const t = tokensFrom(getModelVals(name));
-    const x = xm(t.N), y = ym(t.eff);
-    robot += '<circle cx='+x+' cy='+y+' r="7" fill="#0d9488" stroke="#fff" stroke-width="2"/>'
-           + '<text x='+x+' y='+(y-13)+' fill="#0d9488" font-size="12" font-weight="600" text-anchor="middle">'+name+'</text>';
+    robot += robotPointSVG(t.N,t.eff,ROBOT_POINT.effective,name,-13);
   });
   // scale.js emits unquoted numeric attributes (ok in HTML); quote them for strict XML.
   const inner = (plotScaffold() + robot + plotBorder()).replace(/=(-?[\\d.]+)(?=[ \\/>])/g, '="$1"');

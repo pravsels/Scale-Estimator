@@ -33,14 +33,15 @@ function draw(){
   let robot="";
   const cards=[];
   Object.keys(MODELS).forEach(name=>{
-    const t=tokensFrom(getModelVals(name));
-    const x=xm(t.N), y=ym(t.eff), href="model.html?m="+encodeURIComponent(name);
+    const model=getModelVals(name);
+    const t=tokensFrom(applyPrimaryOverrides(model,editableDefaults(model)));
+    const href="model.html?m="+encodeURIComponent(name);
     robot+=`<a href="${href}">`
-      +`<circle cx=${x} cy=${y} r="7" fill="#0d9488" stroke="#fff" stroke-width="2" style="cursor:pointer"/>`
-      +`<text x=${x} y=${y-13} fill="#0d9488" font-size="12" font-weight="600" text-anchor="middle" style="cursor:pointer">${name}</text>`
+      +robotPointSVG(t.N,t.eff,ROBOT_POINT.effective,name,-13)
       +`</a>`;
     cards.push(`<a class="modelcard" href="${href}"><div class="mname">${name}</div>`
-      +`<div class="mmeta">${fmt(t.N)} params · ${fmt(t.eff)} tokens</div></a>`);
+      +`<div class="mmeta">${fmt(t.N)} params · ${fmt(t.eff)} tokens</div>`
+      +`<div class="mscope">${t.estimateKind}</div></a>`);
   });
   $("scatter").innerHTML=plotScaffold()+robot+plotBorder()+hoverLines();
   $("models").innerHTML=cards.join("");
